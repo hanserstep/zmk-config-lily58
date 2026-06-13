@@ -1,0 +1,48 @@
+name: Build ZMK Firmware
+
+on:
+  push:
+    paths:
+      - "config/**"
+      - "build.yaml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache west modules
+        uses: actions/cache@v4
+        with:
+          path: /root/west/modules
+          key: west-modules-${{ hashFiles('build.yaml') }}
+          restore-keys: west-modules-
+
+      - name: West Init
+        run: |
+          west init -l config
+          west update
+          west zephyr-export
+
+      - name: Build Left
+        run: west build -s zmk/app -b nice_nano_v2 -- -DSHIELD=lily58_left -DZMK_CONFIG="${GITHUB_WORKSPACE}/config"
+
+      - name: Archive Left
+        uses: actions/upload-artifact@v4
+        with:
+          name: lily58_left
+          path: build/zephyr/zmk.uf2
+
+      - name: Build Right
+        run: west build -p -s zmk/app -b nice_nano_v2 -- -DSHIELD=lily58_right -DZMK_CONFIG="${GITHUB_WORKSPACE}/config"
+
+      - name: Archive Right
+        uses: actions/upload-artifact@v4
+        with:
+          name: lily58_right
+          path: build/zephyr/zmk.uf2
